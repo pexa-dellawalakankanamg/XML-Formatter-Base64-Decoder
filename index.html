@@ -2,7 +2,7 @@
 <html>
 <head>
     <title>XML Tool</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs/editor/editor.main.css">
+    <link rel="stylesheet" data-name="vs/editor/editor.main" href="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs/editor/editor.main.min.css">
     <style>
         * { box-sizing: border-box; }
         body { 
@@ -26,14 +26,57 @@
             font-size: 28px;
             font-weight: 600;
         }
-        #editor { 
+        .editor-container {
             width: 100%;
-            height: 400px;
+            height: 300px;
             border: 2px solid #e0e0e0;
             border-radius: 8px;
+            overflow: hidden;
+            margin-bottom: 15px;
+        }
+        #output-editor {
+            height: 800px;
+        }
+        .editor-label {
+            font-weight: 600;
+            font-size: 14px;
+            margin-bottom: 8px;
+            color: #333;
+        }
+        textarea { 
+            width: 100%;
+            height: 200px;
+            font-family: 'Monaco', 'Courier New', monospace;
+            font-size: 13px;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            resize: vertical;
+            transition: border-color 0.3s;
+        }
+        textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        } 
+            width: 100%;
+            height: 200px;
+            font-family: 'Monaco', 'Courier New', monospace;
+            font-size: 13px;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            resize: vertical;
+            transition: border-color 0.3s;
+        }
+        textarea:focus {
+            outline: none;
+            border-color: #667eea;
         }
         .button-group {
             margin: 15px 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
         button { 
             padding: 10px 20px;
@@ -53,6 +96,20 @@
             background: #5568d3;
             transform: translateY(-1px);
             box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+        .save-btn {
+            background: #28a745 !important;
+        }
+        .save-btn:hover {
+            background: #218838 !important;
+            box-shadow: 0 4px 12px rgba(40, 167, 69, 0.4) !important;
+        }
+        .load-btn {
+            background: #dc3545 !important;
+        }
+        .load-btn:hover {
+            background: #c82333 !important;
+            box-shadow: 0 4px 12px rgba(220, 53, 69, 0.4) !important;
         }
         .counterpart-buttons { 
             margin: 25px 0 15px 0;
@@ -80,65 +137,159 @@
             margin: 15px 0 8px 0;
             color: #667eea;
         }
-        #output { 
-            width: 100%;
-            height: 400px;
-            border: 2px solid #e0e0e0;
+        .copy-btn {
+            background: #6c757d;
+            color: white;
+            padding: 6px 12px;
+            font-size: 12px;
+            margin: 10px 0;
+        }
+        .copy-btn:hover {
+            background: #5a6268;
+            box-shadow: 0 2px 8px rgba(108, 117, 125, 0.4);
+        }
+        .output-actions {
+            display: none;
+            justify-content: flex-end;
+            align-items: center;
+            margin: 10px 0;
+            gap: 10px;
+        }
+        .save-counterpart-btn {
+            background: #28a745;
+            color: white;
+            padding: 6px 12px;
+            font-size: 12px;
+        }
+        .save-counterpart-btn:hover {
+            background: #218838;
+            box-shadow: 0 2px 8px rgba(40, 167, 69, 0.4);
+        }
+        .output { 
+            background: #f8f9fa;
+            padding: 15px;
+            margin: 10px 0;
+            white-space: pre;
+            font-family: 'Monaco', 'Courier New', monospace;
+            font-size: 13px;
+            overflow-x: auto;
             border-radius: 8px;
+            border: 2px solid #e0e0e0;
+            min-height: 100px;
+            color: #333;
         }
     </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs/loader.min.js"></script>
 </head>
 <body>
     <div class="container">
-        <h1>XML Formatter & Base64 Decoder</h1>
+        <h1>XML Decoder</h1>
         
-        <div id="editor"></div>
+        <div class="editor-label">Input XML:</div>
+        <div id="input-editor" class="editor-container"></div>
         
         <div class="button-group">
-            <button onclick="formatXML()">Format XML</button>
-            <button onclick="decodeBase64()">Decode Base64 in XML</button>
-            <button onclick="clearAll()">Clear</button>
+            <div>
+                <button onclick="decodeBase64()">Decode Counterparts</button>
+                <button onclick="clearAll()">Clear</button>
+            </div>
+            <div>
+                <button class="load-btn" onclick="loadXML()">Load</button>
+                <button class="save-btn" onclick="saveXML()">Save</button>
+            </div>
         </div>
         
-        <div class="counterpart-buttons" id="counterpart-buttons"></div>
-        <div class="output-title" id="output-title"></div>
-        <div id="output"></div>
+        <div id="counterpart-buttons" class="counterpart-buttons"></div>
+        <div id="output-title" class="output-title"></div>
+        <div class="editor-label" id="output-label" style="display: none;">Output:</div>
+        <div id="output-editor" class="editor-container" style="display: none;"></div>
+        <div id="output-actions" class="output-actions">
+            <button class="copy-btn" onclick="copyToClipboard()">Copy to Clipboard</button>
+            <button class="save-counterpart-btn" onclick="saveCounterpart()">Save Counterpart</button>
+        </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs/loader.js"></script>
     <script>
-        let inputEditor, outputEditor;
         let decodedCounterparts = [];
         let fullXml = '';
+        let inputEditor, outputEditor;
 
-        require.config({ paths: { vs: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs' } });
-        require(['vs/editor/editor.main'], function () {
-            inputEditor = monaco.editor.create(document.getElementById('editor'), {
+        require.config({ paths: { vs: 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs' }});
+        
+        require(['vs/editor/editor.main'], function() {
+            inputEditor = monaco.editor.create(document.getElementById('input-editor'), {
                 value: '',
                 language: 'xml',
                 theme: 'vs',
-                minimap: { enabled: false },
-                automaticLayout: true
+                automaticLayout: true,
+                minimap: { enabled: true },
+                folding: true,
+                lineNumbers: 'on',
+                scrollBeyondLastLine: false,
+                wordWrap: 'on'
             });
 
-            outputEditor = monaco.editor.create(document.getElementById('output'), {
+            outputEditor = monaco.editor.create(document.getElementById('output-editor'), {
                 value: '',
                 language: 'xml',
                 theme: 'vs',
-                readOnly: false,
-                minimap: { enabled: false },
-                automaticLayout: true
+                automaticLayout: true,
+                minimap: { enabled: true },
+                folding: true,
+                lineNumbers: 'on',
+                scrollBeyondLastLine: false,
+                wordWrap: 'on',
+                readOnly: false
+            });
+
+            inputEditor.onDidPaste(() => {
+                setTimeout(() => {
+                    const value = inputEditor.getValue().trimEnd();
+                    inputEditor.setValue(value);
+                    inputEditor.setPosition({ lineNumber: 1, column: 1 });
+                    document.getElementById('counterpart-buttons').innerHTML = '';
+                    document.getElementById('counterpart-buttons').style.display = 'none';
+                    decodedCounterparts = [];
+                    fullXml = '';
+                    formatXML();
+                }, 0);
+            });
+
+            const inputContainer = document.getElementById('input-editor');
+            inputContainer.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+            });
+            
+            inputContainer.addEventListener('drop', async (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const files = e.dataTransfer.files;
+                if (files.length > 0 && files[0].name.endsWith('.xml')) {
+                    const content = await files[0].text();
+                    inputEditor.setValue(content);
+                    document.getElementById('counterpart-buttons').innerHTML = '';
+                    document.getElementById('counterpart-buttons').style.display = 'none';
+                    decodedCounterparts = [];
+                    fullXml = '';
+                    formatXML();
+                }
             });
         });
 
         function formatXML() {
             const input = inputEditor.getValue();
+            if (!input.trim()) return;
             try {
                 const parser = new DOMParser();
                 const xmlDoc = parser.parseFromString(input, 'text/xml');
                 const serializer = new XMLSerializer();
                 const formatted = serializer.serializeToString(xmlDoc);
                 outputEditor.setValue(formatXMLString(formatted));
+                document.getElementById('output-title').textContent = 'Formatted XML';
+                document.getElementById('output-actions').style.display = 'flex';
+                document.getElementById('output-editor').style.display = 'block';
+                document.getElementById('output-label').style.display = 'block';
             } catch (e) {
                 outputEditor.setValue('Error formatting XML: ' + e.message);
             }
@@ -147,6 +298,7 @@
         function formatXMLString(xml) {
             let formatted = '';
             let indent = 0;
+            xml = xml.replace(/<\?xml[^?]*\?>\s*/g, '');
             xml.split(/>\s*</).forEach(node => {
                 if (node.match(/^\/\w/)) indent--;
                 formatted += '  '.repeat(indent) + '<' + node + '>\n';
@@ -162,7 +314,7 @@
                 const parser = new DOMParser();
                 const xmlDoc = parser.parseFromString(input, 'text/xml');
                 
-                const counterpartNodes = xmlDoc.getElementsByTagName('Counterpart');
+                const counterpartNodes = xmlDoc.querySelectorAll('Counterpart, [*|Counterpart]');
                 const tempData = [];
                 
                 for (let node of counterpartNodes) {
@@ -193,15 +345,24 @@
                 const serializer = new XMLSerializer();
                 fullXml = serializer.serializeToString(xmlDoc);
                 displayButtons();
-                outputEditor.setValue('Click a button to view counterpart');
+                
+                setTimeout(() => {
+                    const fullBtn = document.getElementById('btn-full');
+                    if (fullBtn) {
+                        fullBtn.click();
+                    }
+                }, 50);
             } catch (e) {
                 outputEditor.setValue('Error processing XML: ' + e.message);
+                document.getElementById('output-editor').style.display = 'block';
+                document.getElementById('output-label').style.display = 'block';
             }
         }
 
         function displayButtons() {
             const container = document.getElementById('counterpart-buttons');
             container.innerHTML = '';
+            container.style.display = 'block';
             
             const fullBtn = document.createElement('button');
             fullBtn.className = 'counterpart-btn';
@@ -211,6 +372,10 @@
                 setActive('btn-full');
                 document.getElementById('output-title').textContent = 'Full XML';
                 outputEditor.setValue(formatXMLString(fullXml));
+                document.getElementById('output-actions').style.display = 'flex';
+                document.getElementById('output-editor').style.display = 'block';
+                document.getElementById('output-label').style.display = 'block';
+                container.scrollIntoView({ behavior: 'smooth', block: 'start' });
             };
             container.appendChild(fullBtn);
             
@@ -233,6 +398,56 @@
             setActive('btn-' + idx);
             document.getElementById('output-title').textContent = decodedCounterparts[idx].type;
             outputEditor.setValue(formatXMLString(decodedCounterparts[idx].xml));
+            document.getElementById('output-actions').style.display = 'flex';
+            document.getElementById('output-editor').style.display = 'block';
+            document.getElementById('output-label').style.display = 'block';
+            document.getElementById('counterpart-buttons').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        function copyToClipboard() {
+            const output = outputEditor.getValue();
+            navigator.clipboard.writeText(output).then(() => {
+                const btn = event.target;
+                const originalText = btn.textContent;
+                btn.textContent = 'Copied!';
+                setTimeout(() => btn.textContent = originalText, 2000);
+            }).catch(e => alert('Failed to copy: ' + e.message));
+        }
+
+        function saveCounterpart() {
+            const content = outputEditor.getValue();
+            const title = document.getElementById('output-title').textContent;
+            if (!content.trim()) {
+                alert('No content to save');
+                return;
+            }
+            
+            if ('showSaveFilePicker' in window) {
+                saveCounterpartWithPicker(content, title);
+            } else {
+                alert('File System Access API not supported in this browser');
+            }
+        }
+
+        async function saveCounterpartWithPicker(content, title) {
+            try {
+                const filename = title.replace(/[^a-z0-9]/gi, '-').toLowerCase();
+                const handle = await window.showSaveFilePicker({
+                    suggestedName: `${filename}-${Date.now()}.xml`,
+                    types: [{
+                        description: 'XML Files',
+                        accept: { 'text/xml': ['.xml'] }
+                    }]
+                });
+                const writable = await handle.createWritable();
+                await writable.write(content);
+                await writable.close();
+                alert('Counterpart saved successfully!');
+            } catch (e) {
+                if (e.name !== 'AbortError') {
+                    alert('Error saving file: ' + e.message);
+                }
+            }
         }
 
         function clearAll() {
@@ -240,8 +455,74 @@
             outputEditor.setValue('');
             document.getElementById('output-title').textContent = '';
             document.getElementById('counterpart-buttons').innerHTML = '';
+            document.getElementById('counterpart-buttons').style.display = 'none';
+            document.getElementById('output-actions').style.display = 'none';
+            document.getElementById('output-editor').style.display = 'none';
+            document.getElementById('output-label').style.display = 'none';
             decodedCounterparts = [];
             fullXml = '';
+        }
+
+        function saveXML() {
+            const input = inputEditor.getValue();
+            if (!input.trim()) {
+                alert('No XML to save');
+                return;
+            }
+            
+            if ('showSaveFilePicker' in window) {
+                saveWithFilePicker(input);
+            } else {
+                alert('File System Access API not supported in this browser');
+            }
+        }
+
+        async function saveWithFilePicker(content) {
+            try {
+                const handle = await window.showSaveFilePicker({
+                    suggestedName: `xml-${Date.now()}.xml`,
+                    types: [{
+                        description: 'XML Files',
+                        accept: { 'text/xml': ['.xml'] }
+                    }]
+                });
+                const writable = await handle.createWritable();
+                await writable.write(content);
+                await writable.close();
+                alert('File saved successfully!');
+            } catch (e) {
+                if (e.name !== 'AbortError') {
+                    alert('Error saving file: ' + e.message);
+                }
+            }
+        }
+
+        function loadXML() {
+            if ('showOpenFilePicker' in window) {
+                loadWithFilePicker();
+            } else {
+                alert('File System Access API not supported in this browser');
+            }
+        }
+
+        async function loadWithFilePicker() {
+            try {
+                const [handle] = await window.showOpenFilePicker({
+                    types: [{
+                        description: 'XML Files',
+                        accept: { 'text/xml': ['.xml'] }
+                    }],
+                    multiple: false
+                });
+                const file = await handle.getFile();
+                const content = await file.text();
+                inputEditor.setValue(content);
+                formatXML();
+            } catch (e) {
+                if (e.name !== 'AbortError') {
+                    alert('Error loading file: ' + e.message);
+                }
+            }
         }
     </script>
 </body>
