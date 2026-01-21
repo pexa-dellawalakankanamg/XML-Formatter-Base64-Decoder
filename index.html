@@ -14,36 +14,102 @@
             transition: background 0.3s;
         }
         .container {
-            max-width: 1200px;
+            max-width: 1400px;
             margin: 0 auto;
             background: white;
-            border-radius: 12px;
+            border-radius: 0;
             padding: 30px;
             box-shadow: 0 20px 60px rgba(0,0,0,0.3);
             transition: background 0.3s, color 0.3s;
         }
         h1 { 
-            margin: 0 0 25px 0;
-            color: #333;
-            font-size: 28px;
+            margin: 0;
+            color: white;
+            font-size: 20px;
             font-weight: 600;
+        }
+        .top-menu {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 12px 30px;
             display: flex;
-            justify-content: space-between;
             align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            margin: 0 auto 0 auto;
+            max-width: 1400px;
+            border-radius: 0;
+            border-bottom: 2px solid #e0e0e0;
+        }
+        .menu-items {
+            display: flex;
+            gap: 8px;
+        }
+        .menu-item {
+            padding: 8px 20px;
+            background: transparent;
+            border: none;
+            border-bottom: 3px solid transparent;
+            border-radius: 0;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            color: #666;
+            transition: all 0.2s;
+        }
+        .menu-item:hover {
+            color: #667eea;
+            transform: none;
+            box-shadow: none;
+        }
+        .menu-item.active {
+            font-weight: 600;
+            color: #667eea;
+            border-bottom-color: #667eea;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        body.dark .top-menu {
+            background: rgba(0, 0, 0, 0.55);
+            border-bottom: 2px solid #000000;
+        }
+        body.dark .menu-item {
+            color: #999;
+        }
+        body.dark .menu-item:hover {
+            color: #667eea;
+        }
+        body.dark .menu-item.active {
+            font-weight: 600;
+            color: #667eea;
+            border-bottom-color: #667eea;
         }
         .theme-toggle {
-            background: #f0f0f0;
-            padding: 8px;
-            font-size: 20px;
+            background: transparent;
+            padding: 8px 12px;
+            font-size: 18px;
             cursor: pointer;
             border: none;
             transition: all 0.2s;
-            border-radius: 6px;
+            border-radius: 8px;
+            color: #666;
         }
         .theme-toggle:hover {
-            background: #e0e0e0;
+            background: rgba(102, 126, 234, 0.1);
+            color: #667eea;
             transform: none !important;
             box-shadow: none !important;
+        }
+        body.dark .theme-toggle {
+            color: #999;
+        }
+        body.dark .theme-toggle:hover {
+            background: rgba(102, 126, 234, 0.2);
+            color: #667eea;
         }
         body.dark {
             background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
@@ -61,12 +127,7 @@
         body.dark .output-title {
             color: #667eea;
         }
-        body.dark .theme-toggle:hover {
-            background: #16213e;
-        }
-        body.dark .theme-toggle {
-            background: #1a1a2e;
-        }
+
         body.dark .editor-container {
             border-color: #1a1a2e;
         }
@@ -90,7 +151,6 @@
             width: 100%;
             height: 300px;
             border: 2px solid #e0e0e0;
-            border-radius: 8px;
             overflow: hidden;
             margin-bottom: 15px;
         }
@@ -215,6 +275,34 @@
             margin: 10px 0;
             gap: 10px;
         }
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            align-items: center;
+        }
+        .controls button {
+            background: #667eea;
+            color: white;
+        }
+        .controls button:hover {
+            background: #5568d3;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+        .format-info {
+            margin-left: 10px;
+            padding: 6px 12px;
+            background: #f0f0f0;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+            color: #667eea;
+        }
+        body.dark .format-info {
+            background: #1a1a2e;
+            color: #667eea;
+        }
         .save-counterpart-btn {
             background: #28a745;
             color: white;
@@ -242,12 +330,16 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs/loader.min.js"></script>
 </head>
 <body>
+    <div class="top-menu">
+        <div class="menu-items">
+            <button class="menu-item active" onclick="switchTab('decoder')">XML Decoder</button>
+            <button class="menu-item" onclick="switchTab('formatter')">Formatter</button>
+        </div>
+        <button class="theme-toggle" onclick="toggleTheme()">🌙</button>
+    </div>
+    
     <div class="container">
-        <h1>
-            <span>XML Decoder</span>
-            <button class="theme-toggle" onclick="toggleTheme()">🌙</button>
-        </h1>
-        
+        <div id="decoder-tab" class="tab-content active">
         <div class="editor-label">Input XML:</div>
         <div id="input-editor" class="editor-container"></div>
         
@@ -270,12 +362,21 @@
             <button class="copy-btn" onclick="copyToClipboard()">Copy to Clipboard</button>
             <button class="save-counterpart-btn" onclick="saveCounterpart()">Save Counterpart</button>
         </div>
+        </div>
+        
+        <div id="formatter-tab" class="tab-content">
+            <div class="controls">
+                <button onclick="formatCode()">Format</button>
+                <button onclick="clearFormatter()">Clear</button>
+            </div>
+            <div id="formatter-editor" class="editor-container"></div>
+        </div>
     </div>
 
     <script>
         let decodedCounterparts = [];
         let fullXml = '';
-        let inputEditor, outputEditor;
+        let inputEditor, outputEditor, formatterEditor;
         let isDark = localStorage.getItem('theme') === 'dark';
 
         require.config({ paths: { vs: 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs' }});
@@ -306,10 +407,31 @@
                 readOnly: false
             });
 
+            formatterEditor = monaco.editor.create(document.getElementById('formatter-editor'), {
+                value: '',
+                language: 'plaintext',
+                theme: isDark ? 'vs-dark' : 'vs',
+                automaticLayout: true,
+                minimap: { enabled: true },
+                folding: true,
+                lineNumbers: 'on',
+                scrollBeyondLastLine: false,
+                wordWrap: 'on',
+                formatOnPaste: true,
+                formatOnType: true
+            });
+
             if (isDark) {
                 document.body.classList.add('dark');
                 document.querySelector('.theme-toggle').textContent = '☀️';
             }
+
+            formatterEditor.onDidChangeModelContent(() => {
+                const content = formatterEditor.getValue();
+                if (content.trim()) {
+                    detectType(content);
+                }
+            });
 
             inputEditor.onDidPaste(() => {
                 setTimeout(() => {
@@ -599,8 +721,76 @@
             document.body.classList.toggle('dark', isDark);
             inputEditor.updateOptions({ theme: isDark ? 'vs-dark' : 'vs' });
             outputEditor.updateOptions({ theme: isDark ? 'vs-dark' : 'vs' });
+            formatterEditor.updateOptions({ theme: isDark ? 'vs-dark' : 'vs' });
             document.querySelector('.theme-toggle').textContent = isDark ? '☀️' : '🌙';
             localStorage.setItem('theme', isDark ? 'dark' : 'light');
+        }
+
+        function switchTab(tab) {
+            document.querySelectorAll('.menu-item').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            
+            if (tab === 'decoder') {
+                document.querySelector('.menu-item:nth-child(1)').classList.add('active');
+                document.getElementById('decoder-tab').classList.add('active');
+            } else {
+                document.querySelector('.menu-item:nth-child(2)').classList.add('active');
+                document.getElementById('formatter-tab').classList.add('active');
+            }
+        }
+
+        function detectType(content) {
+            const trimmed = content.trim();
+            if (trimmed.startsWith('<') || trimmed.startsWith('<?xml')) return 'xml';
+            if (trimmed.startsWith('{') || trimmed.startsWith('[')) return 'json';
+            return 'yaml';
+        }
+
+        function formatCode() {
+            const input = formatterEditor.getValue();
+            if (!input.trim()) return;
+
+            const type = detectType(input);
+            monaco.editor.setModelLanguage(formatterEditor.getModel(), type);
+
+            try {
+                let formatted;
+                if (type === 'xml') {
+                    formatted = formatXMLString(input);
+                } else if (type === 'json') {
+                    formatted = JSON.stringify(JSON.parse(input), null, 2);
+                } else {
+                    formatted = formatYAML(input);
+                }
+                formatterEditor.setValue(formatted);
+                formatterEditor.setPosition({ lineNumber: 1, column: 1 });
+            } catch (e) {
+                alert('Error formatting: ' + e.message);
+            }
+        }
+
+        function formatYAML(yaml) {
+            const lines = yaml.split('\n');
+            let formatted = '';
+            
+            lines.forEach(line => {
+                const trimmed = line.trim();
+                if (!trimmed || trimmed.startsWith('#')) {
+                    formatted += line + '\n';
+                    return;
+                }
+                
+                const leadingSpaces = line.match(/^\s*/)[0].length;
+                const indent = Math.floor(leadingSpaces / 2);
+                formatted += '  '.repeat(indent) + trimmed + '\n';
+            });
+            
+            return formatted.trim();
+        }
+
+        function clearFormatter() {
+            formatterEditor.setValue('');
+            monaco.editor.setModelLanguage(formatterEditor.getModel(), 'plaintext');
         }
     </script>
 </body>
