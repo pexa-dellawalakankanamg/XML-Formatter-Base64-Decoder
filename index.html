@@ -11,6 +11,7 @@
             padding: 20px;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
+            transition: background 0.3s;
         }
         .container {
             max-width: 1200px;
@@ -19,12 +20,71 @@
             border-radius: 12px;
             padding: 30px;
             box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            transition: background 0.3s, color 0.3s;
         }
         h1 { 
             margin: 0 0 25px 0;
             color: #333;
             font-size: 28px;
             font-weight: 600;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .theme-toggle {
+            background: #f0f0f0;
+            padding: 8px;
+            font-size: 20px;
+            cursor: pointer;
+            border: none;
+            transition: all 0.2s;
+            border-radius: 6px;
+        }
+        .theme-toggle:hover {
+            background: #e0e0e0;
+            transform: none !important;
+            box-shadow: none !important;
+        }
+        body.dark {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+        }
+        body.dark .container {
+            background: #0f3460;
+            color: #e0e0e0;
+        }
+        body.dark h1 {
+            color: #e0e0e0;
+        }
+        body.dark .editor-label {
+            color: #e0e0e0;
+        }
+        body.dark .output-title {
+            color: #667eea;
+        }
+        body.dark .theme-toggle:hover {
+            background: #16213e;
+        }
+        body.dark .theme-toggle {
+            background: #1a1a2e;
+        }
+        body.dark .editor-container {
+            border-color: #1a1a2e;
+        }
+        body.dark .counterpart-buttons {
+            border-top-color: #1a1a2e;
+        }
+        body.dark .counterpart-btn {
+            background: #1a1a2e;
+            color: #e0e0e0;
+            border-color: #1a1a2e;
+        }
+        body.dark .counterpart-btn:hover {
+            background: #16213e;
+            border-color: #667eea;
+        }
+        body.dark .counterpart-btn.active {
+            background: #667eea;
+            color: white;
         }
         .editor-container {
             width: 100%;
@@ -183,7 +243,10 @@
 </head>
 <body>
     <div class="container">
-        <h1>XML Decoder</h1>
+        <h1>
+            <span>XML Decoder</span>
+            <button class="theme-toggle" onclick="toggleTheme()">🌙</button>
+        </h1>
         
         <div class="editor-label">Input XML:</div>
         <div id="input-editor" class="editor-container"></div>
@@ -213,6 +276,7 @@
         let decodedCounterparts = [];
         let fullXml = '';
         let inputEditor, outputEditor;
+        let isDark = localStorage.getItem('theme') === 'dark';
 
         require.config({ paths: { vs: 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs' }});
         
@@ -220,7 +284,7 @@
             inputEditor = monaco.editor.create(document.getElementById('input-editor'), {
                 value: '',
                 language: 'xml',
-                theme: 'vs',
+                theme: isDark ? 'vs-dark' : 'vs',
                 automaticLayout: true,
                 minimap: { enabled: true },
                 folding: true,
@@ -232,7 +296,7 @@
             outputEditor = monaco.editor.create(document.getElementById('output-editor'), {
                 value: '',
                 language: 'xml',
-                theme: 'vs',
+                theme: isDark ? 'vs-dark' : 'vs',
                 automaticLayout: true,
                 minimap: { enabled: true },
                 folding: true,
@@ -241,6 +305,11 @@
                 wordWrap: 'on',
                 readOnly: false
             });
+
+            if (isDark) {
+                document.body.classList.add('dark');
+                document.querySelector('.theme-toggle').textContent = '☀️';
+            }
 
             inputEditor.onDidPaste(() => {
                 setTimeout(() => {
@@ -523,6 +592,15 @@
                     alert('Error loading file: ' + e.message);
                 }
             }
+        }
+
+        function toggleTheme() {
+            isDark = !isDark;
+            document.body.classList.toggle('dark', isDark);
+            inputEditor.updateOptions({ theme: isDark ? 'vs-dark' : 'vs' });
+            outputEditor.updateOptions({ theme: isDark ? 'vs-dark' : 'vs' });
+            document.querySelector('.theme-toggle').textContent = isDark ? '☀️' : '🌙';
+            localStorage.setItem('theme', isDark ? 'dark' : 'light');
         }
     </script>
 </body>
