@@ -359,7 +359,10 @@
         </div>
         
         <div id="counterpart-buttons" class="counterpart-buttons"></div>
-        <div id="output-title" class="output-title"></div>
+        <div id="sub-buttons-container" style="display: none; margin-top: 10px; padding-top: 10px; border-top: 1px solid #e0e0e0;">
+            <div id="output-title" class="output-title" style="margin-top: 0;"></div>
+            <div id="sub-buttons" class="counterpart-buttons" style="margin-top: 0; padding-top: 0; border-top: none;"></div>
+        </div>
         <div class="editor-label" id="output-label" style="display: none;">Output:</div>
         <div id="output-editor" class="editor-container" style="display: none;"></div>
         <div id="output-actions" class="output-actions">
@@ -379,6 +382,7 @@
 
     <script>
         let decodedCounterparts = [];
+        let lodgementDocs = [];
         let fullXml = '';
         let inputEditor, outputEditor, formatterEditor;
         let isDark = localStorage.getItem('theme') === 'dark';
@@ -505,6 +509,7 @@
         function decodeBase64() {
             const input = inputEditor.getValue();
             decodedCounterparts = [];
+            lodgementDocs = [];
             try {
                 const parser = new DOMParser();
                 const xmlDoc = parser.parseFromString(input, 'text/xml');
@@ -519,24 +524,93 @@
                             const decodedDoc = parser.parseFromString(decoded, 'text/xml');
                             const docType = decodedDoc.querySelector('DocumentType')?.textContent || 'Unknown';
                             const signingRole = decodedDoc.querySelector('SigningPartyRole')?.textContent;
-                            tempData.push({ docType, signingRole, decoded, node, decodedDoc });
+                            const elnDocId = decodedDoc.querySelector('ElnDocumentId')?.textContent;
+
+                            // Find the parent Lodgement Document or Lodgement Instructions element
+                            let lodgementDocNode = node.parentElement;
+                            while (lodgementDocNode &&
+                                   !lodgementDocNode.tagName.includes('LodgementDocument') &&
+                                   !lodgementDocNode.tagName.includes('LodgementInstructions')) {
+                                lodgementDocNode = lodgementDocNode.parentElement;
+                            }
+
+                            tempData.push({ docType, signingRole, decoded, node, decodedDoc, elnDocId, lodgementDocNode });
                         } catch (e) {}
                     }
                 }
                 
-                const docTypeCounts = {};
-                tempData.forEach(d => docTypeCounts[d.docType] = (docTypeCounts[d.docType] || 0) + 1);
-                
+                // Group by ElnDocumentId and DocumentType
+                const lodgementGroups = {};
                 tempData.forEach(d => {
-                    const label = docTypeCounts[d.docType] > 1 && d.signingRole ? `${d.docType} - ${d.signingRole}` : d.docType;
-                    decodedCounterparts.push({ type: label, xml: d.decoded });
-                    d.node.textContent = '';
-                    while (d.node.firstChild) d.node.removeChild(d.node.firstChild);
-                    for (let child of d.decodedDoc.documentElement.childNodes) {
-                        d.node.appendChild(xmlDoc.importNode(child, true));
+                    const key = `${d.docType}_${d.elnDocId}`;
+                    if (!lodgementGroups[key]) {
+                        lodgementGroups[key] = {
+                            docType: d.docType,
+                            elnDocId: d.elnDocId,
+                            lodgementDocNode: d.lodgementDocNode,
+                            counterparts: []
+                        };
                     }
+                    lodgementGroups[key].counterparts.push(d);
                 });
-                
+
+                // Assign numbers to each lodgement document
+                const docTypeCounters = {};
+                const docTypeTotals = {};
+
+                // First pass: count total of each document type
+                Object.values(lodgementGroups).forEach(group => {
+                    docTypeTotals[group.docType] = (docTypeTotals[group.docType] || 0) + 1;
+                });
+
+                // Second pass: assign labels with numbers only if multiple of same type
+                Object.values(lodgementGroups).forEach(group => {
+                    docTypeCounters[group.docType] = (docTypeCounters[group.docType] || 0) + 1;
+                    const number = docTypeCounters[group.docType];
+                    const label = docTypeTotals[group.docType] > 1 ? `${group.docType} ${number}` : group.docType;
+
+                    // Clone the lodgement document node and decode all counterparts within it
+                    let lodgementXml = '';
+                    if (group.lodgementDocNode) {
+                        const clonedLodgement = group.lodgementDocNode.cloneNode(true);
+                        const clonedCounterparts = clonedLodgement.querySelectorAll('Counterpart, [*|Counterpart]');
+
+                        // Decode all counterparts in the cloned lodgement document
+                        group.counterparts.forEach((cp, idx) => {
+                            if (clonedCounterparts[idx]) {
+                                clonedCounterparts[idx].textContent = '';
+                                while (clonedCounterparts[idx].firstChild) {
+                                    clonedCounterparts[idx].removeChild(clonedCounterparts[idx].firstChild);
+                                }
+                                for (let child of cp.decodedDoc.documentElement.childNodes) {
+                                    clonedCounterparts[idx].appendChild(clonedLodgement.ownerDocument.importNode(child, true));
+                                }
+                            }
+                        });
+
+                        const serializer = new XMLSerializer();
+                        lodgementXml = serializer.serializeToString(clonedLodgement);
+                    }
+
+                    lodgementDocs.push({
+                        label: label,
+                        fullXml: lodgementXml,
+                        counterparts: group.counterparts.map(cp => ({
+                            role: cp.signingRole || group.docType,
+                            xml: cp.decoded
+                        }))
+                    });
+
+                    // Still process nodes for full XML
+                    group.counterparts.forEach(d => {
+                        d.node.textContent = '';
+                        while (d.node.firstChild) d.node.removeChild(d.node.firstChild);
+                        for (let child of d.decodedDoc.documentElement.childNodes) {
+                            d.node.appendChild(xmlDoc.importNode(child, true));
+                        }
+                    });
+                });
+
                 const serializer = new XMLSerializer();
                 fullXml = serializer.serializeToString(xmlDoc);
                 displayButtons();
@@ -570,33 +644,82 @@
                 document.getElementById('output-actions').style.display = 'flex';
                 document.getElementById('output-editor').style.display = 'block';
                 document.getElementById('output-label').style.display = 'block';
+                document.getElementById('sub-buttons').innerHTML = '';
+                document.getElementById('sub-buttons-container').style.display = 'none';
                 container.scrollIntoView({ behavior: 'smooth', block: 'start' });
             };
             container.appendChild(fullBtn);
             
-            decodedCounterparts.forEach((cp, idx) => {
+            lodgementDocs.forEach((doc, idx) => {
                 const btn = document.createElement('button');
                 btn.className = 'counterpart-btn';
-                btn.id = 'btn-' + idx;
-                btn.textContent = cp.type;
-                btn.onclick = () => showCounterpart(idx);
+                btn.id = 'btn-lodgement-' + idx;
+                btn.textContent = doc.label;
+                btn.onclick = () => showLodgementDoc(idx);
                 container.appendChild(btn);
             });
+        }
+
+        function showLodgementDoc(lodgementIdx) {
+            setActive('btn-lodgement-' + lodgementIdx);
+            const doc = lodgementDocs[lodgementIdx];
+
+            // Show the full lodgement document
+            document.getElementById('output-title').textContent = doc.label;
+            outputEditor.setValue(formatXMLString(doc.fullXml));
+            document.getElementById('output-actions').style.display = 'flex';
+            document.getElementById('output-editor').style.display = 'block';
+            document.getElementById('output-label').style.display = 'block';
+
+            // Display sub-buttons for complete document and individual counterparts
+            const subContainer = document.getElementById('sub-buttons');
+            subContainer.innerHTML = '';
+            document.getElementById('sub-buttons-container').style.display = 'block';
+
+            // Add "Complete" button
+            const completeBtn = document.createElement('button');
+            completeBtn.className = 'counterpart-btn active';
+            completeBtn.id = 'btn-sub-' + lodgementIdx + '-complete';
+            completeBtn.textContent = `Complete ${doc.label}`;
+            completeBtn.onclick = () => showSubCounterpart(lodgementIdx, -1);
+            subContainer.appendChild(completeBtn);
+
+            // Add individual counterpart buttons
+            doc.counterparts.forEach((cp, cpIdx) => {
+                const subBtn = document.createElement('button');
+                subBtn.className = 'counterpart-btn';
+                subBtn.id = 'btn-sub-' + lodgementIdx + '-' + cpIdx;
+                subBtn.textContent = cp.role;
+                subBtn.onclick = () => showSubCounterpart(lodgementIdx, cpIdx);
+                subContainer.appendChild(subBtn);
+            });
+
+            document.getElementById('counterpart-buttons').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        function showSubCounterpart(lodgementIdx, cpIdx) {
+            const doc = lodgementDocs[lodgementIdx];
+
+            // Update active state for sub-buttons
+            document.querySelectorAll('#sub-buttons .counterpart-btn').forEach(b => b.classList.remove('active'));
+
+            if (cpIdx === -1) {
+                // Show complete document
+                document.getElementById('btn-sub-' + lodgementIdx + '-complete')?.classList.add('active');
+                document.getElementById('output-title').textContent = doc.label;
+                outputEditor.setValue(formatXMLString(doc.fullXml));
+            } else {
+                // Show individual counterpart
+                const cp = doc.counterparts[cpIdx];
+                document.getElementById('btn-sub-' + lodgementIdx + '-' + cpIdx)?.classList.add('active');
+                document.getElementById('output-title').textContent = `${doc.label} - ${cp.role}`;
+                outputEditor.setValue(formatXMLString(cp.xml));
+            }
         }
 
         function setActive(btnId) {
             document.querySelectorAll('.counterpart-btn').forEach(b => b.classList.remove('active'));
             document.getElementById(btnId).classList.add('active');
-        }
-
-        function showCounterpart(idx) {
-            setActive('btn-' + idx);
-            document.getElementById('output-title').textContent = decodedCounterparts[idx].type;
-            outputEditor.setValue(formatXMLString(decodedCounterparts[idx].xml));
-            document.getElementById('output-actions').style.display = 'flex';
-            document.getElementById('output-editor').style.display = 'block';
-            document.getElementById('output-label').style.display = 'block';
-            document.getElementById('counterpart-buttons').scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
 
         function copyToClipboard() {
