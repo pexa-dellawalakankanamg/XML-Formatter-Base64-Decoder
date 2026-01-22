@@ -181,20 +181,6 @@
         textarea:focus {
             outline: none;
             border-color: #667eea;
-        } 
-            width: 100%;
-            height: 200px;
-            font-family: 'Monaco', 'Courier New', monospace;
-            font-size: 13px;
-            padding: 12px;
-            border: 2px solid #e0e0e0;
-            border-radius: 8px;
-            resize: vertical;
-            transition: border-color 0.3s;
-        }
-        textarea:focus {
-            outline: none;
-            border-color: #667eea;
         }
         .button-group {
             margin: 15px 0;
@@ -354,7 +340,7 @@
             </div>
             <div>
                 <button class="load-btn" onclick="loadXML()">Load</button>
-                <button class="save-btn" onclick="saveXML()">Save</button>
+                <button class="save-btn" onclick="saveXML()">Save Input</button>
             </div>
         </div>
         
@@ -367,7 +353,7 @@
         <div id="output-editor" class="editor-container" style="display: none;"></div>
         <div id="output-actions" class="output-actions">
             <button class="copy-btn" onclick="copyToClipboard()">Copy to Clipboard</button>
-            <button class="save-counterpart-btn" onclick="saveCounterpart()">Save Counterpart</button>
+            <button class="save-counterpart-btn" onclick="saveCounterpart()">Save Output</button>
         </div>
         </div>
         
@@ -446,10 +432,7 @@
                     const value = inputEditor.getValue().trimEnd();
                     inputEditor.setValue(value);
                     inputEditor.setPosition({ lineNumber: 1, column: 1 });
-                    document.getElementById('counterpart-buttons').innerHTML = '';
-                    document.getElementById('counterpart-buttons').style.display = 'none';
-                    decodedCounterparts = [];
-                    fullXml = '';
+                    clearOutput();
                     formatXML();
                 }, 0);
             });
@@ -467,14 +450,25 @@
                 if (files.length > 0 && files[0].name.endsWith('.xml')) {
                     const content = await files[0].text();
                     inputEditor.setValue(content);
-                    document.getElementById('counterpart-buttons').innerHTML = '';
-                    document.getElementById('counterpart-buttons').style.display = 'none';
-                    decodedCounterparts = [];
-                    fullXml = '';
+                    clearOutput();
                     formatXML();
                 }
             });
         });
+
+        function clearOutput() {
+            document.getElementById('counterpart-buttons').innerHTML = '';
+            document.getElementById('counterpart-buttons').style.display = 'none';
+            document.getElementById('sub-buttons').innerHTML = '';
+            document.getElementById('sub-buttons-container').style.display = 'none';
+            document.getElementById('output-title').textContent = '';
+            document.getElementById('output-actions').style.display = 'none';
+            document.getElementById('output-editor').style.display = 'none';
+            document.getElementById('output-label').style.display = 'none';
+            decodedCounterparts = [];
+            lodgementDocs = [];
+            fullXml = '';
+        }
 
         function formatXML() {
             const input = inputEditor.getValue();
@@ -680,7 +674,7 @@
             const completeBtn = document.createElement('button');
             completeBtn.className = 'counterpart-btn active';
             completeBtn.id = 'btn-sub-' + lodgementIdx + '-complete';
-            completeBtn.textContent = `Complete ${doc.label}`;
+            completeBtn.textContent = 'Full Lodgement Document';
             completeBtn.onclick = () => showSubCounterpart(lodgementIdx, -1);
             subContainer.appendChild(completeBtn);
 
@@ -689,7 +683,7 @@
                 const subBtn = document.createElement('button');
                 subBtn.className = 'counterpart-btn';
                 subBtn.id = 'btn-sub-' + lodgementIdx + '-' + cpIdx;
-                subBtn.textContent = cp.role;
+                subBtn.textContent = 'Counterpart - ' + cp.role;
                 subBtn.onclick = () => showSubCounterpart(lodgementIdx, cpIdx);
                 subContainer.appendChild(subBtn);
             });
@@ -771,14 +765,7 @@
         function clearAll() {
             inputEditor.setValue('');
             outputEditor.setValue('');
-            document.getElementById('output-title').textContent = '';
-            document.getElementById('counterpart-buttons').innerHTML = '';
-            document.getElementById('counterpart-buttons').style.display = 'none';
-            document.getElementById('output-actions').style.display = 'none';
-            document.getElementById('output-editor').style.display = 'none';
-            document.getElementById('output-label').style.display = 'none';
-            decodedCounterparts = [];
-            fullXml = '';
+            clearOutput();
         }
 
         function saveXML() {
@@ -835,6 +822,7 @@
                 const file = await handle.getFile();
                 const content = await file.text();
                 inputEditor.setValue(content);
+                clearOutput();
                 formatXML();
             } catch (e) {
                 if (e.name !== 'AbortError') {
