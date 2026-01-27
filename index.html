@@ -420,11 +420,22 @@
                 document.querySelector('.theme-toggle').textContent = '☀️';
             }
 
+            // Restore saved content
+            const savedInput = localStorage.getItem('inputContent');
+            const savedFormatter = localStorage.getItem('formatterContent');
+            if (savedInput) inputEditor.setValue(savedInput);
+            if (savedFormatter) formatterEditor.setValue(savedFormatter);
+
             formatterEditor.onDidChangeModelContent(() => {
                 const content = formatterEditor.getValue();
                 if (content.trim()) {
                     detectType(content);
                 }
+                localStorage.setItem('formatterContent', content);
+            });
+
+            inputEditor.onDidChangeModelContent(() => {
+                localStorage.setItem('inputContent', inputEditor.getValue());
             });
 
             inputEditor.onDidPaste(() => {
