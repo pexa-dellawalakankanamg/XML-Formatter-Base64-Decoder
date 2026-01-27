@@ -147,6 +147,16 @@
             background: #667eea;
             color: white;
         }
+        #exclusion-options {
+            transition: background 0.3s, border-color 0.3s;
+        }
+        body.dark #exclusion-options {
+            background: #1a1a2e !important;
+            border-color: #2a2a3e !important;
+        }
+        body.dark #exclusion-options span {
+            color: #e0e0e0;
+        }
         .editor-container {
             width: 100%;
             height: 400px;
@@ -349,6 +359,16 @@
             <div id="output-title" class="output-title" style="margin-top: 0;"></div>
             <div id="sub-buttons" class="counterpart-buttons" style="margin-top: 0; padding-top: 0; border-top: none;"></div>
         </div>
+        <div id="exclusion-options" style="display: none; margin: 15px 0; padding: 10px; background: #f8f9fa; border-radius: 6px; border: 1px solid #e0e0e0;">
+            <label style="margin-right: 20px; display: inline-flex; align-items: center; cursor: pointer;">
+                <input type="checkbox" id="excludeSignature" style="margin-right: 6px; cursor: pointer;">
+                <span style="font-size: 14px; font-weight: 500;">Remove Signatures</span>
+            </label>
+            <label style="display: inline-flex; align-items: center; cursor: pointer;">
+                <input type="checkbox" id="excludeRenderedData" style="margin-right: 6px; cursor: pointer;">
+                <span style="font-size: 14px; font-weight: 500;">Exclude RenderedData</span>
+            </label>
+        </div>
         <div class="editor-label" id="output-label" style="display: none;">Output:</div>
         <div id="output-editor" class="editor-container" style="display: none;"></div>
         <div id="output-actions" class="output-actions">
@@ -476,6 +496,7 @@
             document.getElementById('output-actions').style.display = 'none';
             document.getElementById('output-editor').style.display = 'none';
             document.getElementById('output-label').style.display = 'none';
+            document.getElementById('exclusion-options').style.display = 'none';
             decodedCounterparts = [];
             lodgementDocs = [];
             fullXml = '';
@@ -645,12 +666,14 @@
             fullBtn.onclick = () => {
                 setActive('btn-full');
                 document.getElementById('output-title').textContent = 'Full XML';
-                outputEditor.setValue(formatXMLString(fullXml));
+                const output = getOutputXML(fullXml);
+                outputEditor.setValue(formatXMLString(output));
                 document.getElementById('output-actions').style.display = 'flex';
                 document.getElementById('output-editor').style.display = 'block';
                 document.getElementById('output-label').style.display = 'block';
                 document.getElementById('sub-buttons').innerHTML = '';
                 document.getElementById('sub-buttons-container').style.display = 'none';
+                document.getElementById('exclusion-options').style.display = 'block';
                 container.scrollIntoView({ behavior: 'smooth', block: 'start' });
             };
             container.appendChild(fullBtn);
@@ -671,7 +694,8 @@
 
             // Show the full lodgement document
             document.getElementById('output-title').textContent = doc.label;
-            outputEditor.setValue(formatXMLString(doc.fullXml));
+            const output = getOutputXML(doc.fullXml);
+            outputEditor.setValue(formatXMLString(output));
             document.getElementById('output-actions').style.display = 'flex';
             document.getElementById('output-editor').style.display = 'block';
             document.getElementById('output-label').style.display = 'block';
@@ -680,6 +704,7 @@
             const subContainer = document.getElementById('sub-buttons');
             subContainer.innerHTML = '';
             document.getElementById('sub-buttons-container').style.display = 'block';
+            document.getElementById('exclusion-options').style.display = 'block';
 
             // Add "Complete" button
             const completeBtn = document.createElement('button');
@@ -712,13 +737,15 @@
                 // Show complete document
                 document.getElementById('btn-sub-' + lodgementIdx + '-complete')?.classList.add('active');
                 document.getElementById('output-title').textContent = doc.label;
-                outputEditor.setValue(formatXMLString(doc.fullXml));
+                const output = getOutputXML(doc.fullXml);
+                outputEditor.setValue(formatXMLString(output));
             } else {
                 // Show individual counterpart
                 const cp = doc.counterparts[cpIdx];
                 document.getElementById('btn-sub-' + lodgementIdx + '-' + cpIdx)?.classList.add('active');
                 document.getElementById('output-title').textContent = `${doc.label} - ${cp.role}`;
-                outputEditor.setValue(formatXMLString(cp.xml));
+                const output = getOutputXML(cp.xml);
+                outputEditor.setValue(formatXMLString(output));
             }
         }
 
@@ -726,6 +753,70 @@
             document.querySelectorAll('.counterpart-btn').forEach(b => b.classList.remove('active'));
             document.getElementById(btnId).classList.add('active');
         }
+
+        function excludeElements(xmlString, elementConfigs) {
+            const parser = new DOMParser();
+            const xmlDoc = parser.parseFromString(xmlString, 'text/xml');
+            
+            elementConfigs.forEach(config => {
+                const elements = xmlDoc.querySelectorAll(`${config.name}, [*|${config.name}]`);
+                elements.forEach(elem => {
+                    // Clear all child nodes
+                    while (elem.firstChild) {
+                        elem.removeChild(elem.firstChild);
+                    }
+                    // Add exclusion message as text content
+                    elem.textContent = config.message || `[${config.name} excluded]`;
+                });
+            });
+            
+            const serializer = new XMLSerializer();
+            return serializer.serializeToString(xmlDoc);
+        }
+
+        function getOutputXML(xmlString) {
+            const excludeSignature = document.getElementById('excludeSignature').checked;
+            const excludeRenderedData = document.getElementById('excludeRenderedData').checked;
+            
+            let output = xmlString;
+            
+            if (excludeSignature) {
+                output = excludeElements(output, [
+                    { name: 'Signature', message: '[Signature excluded]' },
+                    { name: 'DigitalSigningReport', message: '[DigitalSigningReport excluded]' }
+                ]);
+            }
+            
+            if (excludeRenderedData) {
+                output = excludeElements(output, [
+                    { name: 'RenderedData', message: '[RenderedData excluded]' }
+                ]);
+            }
+            
+            return output;
+        }
+
+        // Add event listener to refresh output when checkbox changes
+        document.addEventListener('DOMContentLoaded', function() {
+            const signatureCheckbox = document.getElementById('excludeSignature');
+            const renderedDataCheckbox = document.getElementById('excludeRenderedData');
+            
+            const refreshOutput = function() {
+                // Re-display the current output with the new setting
+                const activeBtn = document.querySelector('.counterpart-btn.active');
+                if (activeBtn) {
+                    activeBtn.click();
+                }
+            };
+            
+            if (signatureCheckbox) {
+                signatureCheckbox.addEventListener('change', refreshOutput);
+            }
+            
+            if (renderedDataCheckbox) {
+                renderedDataCheckbox.addEventListener('change', refreshOutput);
+            }
+        });
 
         function copyToClipboard() {
             const output = outputEditor.getValue();
