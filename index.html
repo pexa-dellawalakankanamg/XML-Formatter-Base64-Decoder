@@ -2,6 +2,7 @@
 <html>
 <head>
     <title>XML Tool</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛠️</text></svg>">
     <link rel="stylesheet" data-name="vs/editor/editor.main" href="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs/editor/editor.main.min.css">
     <style>
         * { box-sizing: border-box; }
@@ -334,6 +335,7 @@
         <div class="menu-items">
             <button class="menu-item active" onclick="switchTab('decoder')">XML Decoder</button>
             <button class="menu-item" onclick="switchTab('formatter')">Formatter</button>
+            <button class="menu-item" onclick="switchTab('diff')">Diff</button>
         </div>
         <button class="theme-toggle" onclick="toggleTheme()">🌙</button>
     </div>
@@ -384,13 +386,21 @@
             </div>
             <div id="formatter-editor" class="editor-container"></div>
         </div>
+
+        <div id="diff-tab" class="tab-content">
+            <div class="controls">
+                <button onclick="swapDiffEditors()">Swap</button>
+                <button onclick="clearDiff()">Clear</button>
+            </div>
+            <div id="diff-editor-container" class="editor-container" style="height: 700px;"></div>
+        </div>
     </div>
 
     <script>
         let decodedCounterparts = [];
         let lodgementDocs = [];
         let fullXml = '';
-        let inputEditor, outputEditor, formatterEditor;
+        let inputEditor, outputEditor, formatterEditor, diffOriginalEditor, diffModifiedEditor, diffEditor;
         let isDark = localStorage.getItem('theme') === 'dark';
 
         require.config({ paths: { vs: 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs' }});
@@ -434,6 +444,27 @@
                 formatOnPaste: true,
                 formatOnType: true
             });
+
+            diffOriginalEditor = monaco.editor.createModel('', 'xml');
+            diffModifiedEditor = monaco.editor.createModel('', 'xml');
+
+            diffEditor = monaco.editor.createDiffEditor(document.getElementById('diff-editor-container'), {
+                theme: isDark ? 'vs-dark' : 'vs',
+                automaticLayout: true,
+                renderSideBySide: true,
+                scrollBeyondLastLine: false,
+                originalEditable: true
+            });
+            diffEditor.setModel({ original: diffOriginalEditor, modified: diffModifiedEditor });
+
+            // Restore saved diff content
+            const savedDiffOriginal = localStorage.getItem('diffOriginalContent');
+            const savedDiffModified = localStorage.getItem('diffModifiedContent');
+            if (savedDiffOriginal) diffOriginalEditor.setValue(savedDiffOriginal);
+            if (savedDiffModified) diffModifiedEditor.setValue(savedDiffModified);
+
+            diffOriginalEditor.onDidChangeContent(() => localStorage.setItem('diffOriginalContent', diffOriginalEditor.getValue()));
+            diffModifiedEditor.onDidChangeContent(() => localStorage.setItem('diffModifiedContent', diffModifiedEditor.getValue()));
 
             if (isDark) {
                 document.body.classList.add('dark');
@@ -939,6 +970,7 @@
             inputEditor.updateOptions({ theme: isDark ? 'vs-dark' : 'vs' });
             outputEditor.updateOptions({ theme: isDark ? 'vs-dark' : 'vs' });
             formatterEditor.updateOptions({ theme: isDark ? 'vs-dark' : 'vs' });
+            diffEditor.updateOptions({ theme: isDark ? 'vs-dark' : 'vs' });
             document.querySelector('.theme-toggle').textContent = isDark ? '☀️' : '🌙';
             localStorage.setItem('theme', isDark ? 'dark' : 'light');
         }
@@ -950,9 +982,12 @@
             if (tab === 'decoder') {
                 document.querySelector('.menu-item:nth-child(1)').classList.add('active');
                 document.getElementById('decoder-tab').classList.add('active');
-            } else {
+            } else if (tab === 'formatter') {
                 document.querySelector('.menu-item:nth-child(2)').classList.add('active');
                 document.getElementById('formatter-tab').classList.add('active');
+            } else if (tab === 'diff') {
+                document.querySelector('.menu-item:nth-child(3)').classList.add('active');
+                document.getElementById('diff-tab').classList.add('active');
             }
         }
 
@@ -1008,6 +1043,18 @@
         function clearFormatter() {
             formatterEditor.setValue('');
             monaco.editor.setModelLanguage(formatterEditor.getModel(), 'plaintext');
+        }
+
+        function swapDiffEditors() {
+            const orig = diffOriginalEditor.getValue();
+            const mod = diffModifiedEditor.getValue();
+            diffOriginalEditor.setValue(mod);
+            diffModifiedEditor.setValue(orig);
+        }
+
+        function clearDiff() {
+            diffOriginalEditor.setValue('');
+            diffModifiedEditor.setValue('');
         }
     </script>
 </body>
