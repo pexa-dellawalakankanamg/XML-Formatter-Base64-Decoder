@@ -408,7 +408,7 @@
         <div id="decoder-tab" class="tab-content active">
         <div class="history-section" id="history-section" style="display:none;">
             <div style="flex:1; position:relative; display:flex; align-items:center;">
-                <input type="text" id="history-input" placeholder="-- Decoded History --" autocomplete="off" onfocus="showHistoryList()" oninput="filterHistory()" style="padding-right:55px;">
+                <input type="text" id="history-input" placeholder="-- Decoded History --" autocomplete="off" onfocus="showHistoryList()" oninput="filterHistory()" onkeydown="if(event.key==='Enter'&&selectedHistoryId!==null){event.preventDefault();saveHistoryLabel();}" style="padding-right:55px;">
                 <span id="history-clear" onclick="clearHistoryInput()" style="display:none; position:absolute; left:0; top:50%; transform:translateY(-50%); cursor:pointer; font-size:14px; color:#999; padding:2px 4px;">✕</span>
                 <span id="history-save-label" onclick="saveHistoryLabel()" style="display:none; position:absolute; right:30px; top:50%; transform:translateY(-50%); cursor:pointer; font-size:14px; color:#28a745; padding:2px 4px;">💾</span>
                 <span id="history-delete" onclick="deleteHistoryEntry()" style="display:none; position:absolute; right:8px; top:50%; transform:translateY(-50%); cursor:pointer; font-size:14px; color:#dc3545; padding:2px 4px;">🗑</span>
@@ -1282,6 +1282,9 @@
             tx.oncomplete = () => {
                 historyCache = [];
                 refreshHistoryDropdown();
+                const input = document.getElementById('history-input');
+                input.style.borderColor = '#28a745';
+                setTimeout(() => input.style.borderColor = '', 1000);
             };
         }
 
