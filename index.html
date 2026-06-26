@@ -1172,6 +1172,7 @@
             const xmlDoc = parser.parseFromString(inputXml, 'text/xml');
             const messageId = xmlDoc.querySelector('MessageId')?.textContent || '';
             if (messageId && metas.some(e => e.messageId === messageId)) return;
+            if (!messageId && metas.some(e => !e.messageId)) return;
             const environment = xmlDoc.querySelector('Environment')?.textContent || '';
             const jurisdiction = xmlDoc.querySelector('LodgementVerificationRequest > Jurisdiction')?.textContent || '';
             const caseId = xmlDoc.querySelector('ElnLodgementCaseId')?.textContent || '';
