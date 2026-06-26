@@ -1177,8 +1177,9 @@
             const environment = xmlDoc.querySelector('Environment')?.textContent || '';
             const msgService = (xmlDoc.querySelector('MessageService')?.textContent || '').split(' ').map(w => w[0]).join('');
             const jurisdiction = xmlDoc.querySelector('LodgementVerificationRequest > Jurisdiction')?.textContent || '';
+            const workspaceId = xmlDoc.querySelector('ElnWorkspaceId')?.textContent || '';
             const caseId = xmlDoc.querySelector('ElnLodgementCaseId')?.textContent || '';
-            const label = [environment, msgService, jurisdiction, caseId, new Date().toLocaleString('en-AU', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' })].filter(Boolean).join(' - ');
+            const label = [environment, msgService, jurisdiction, workspaceId, caseId, new Date().toLocaleString('en-AU', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' })].filter(Boolean).join(' - ');
 
             const db = await openHistoryDb();
             const tx = db.transaction(['meta', 'content'], 'readwrite');
