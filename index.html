@@ -327,6 +327,70 @@
             min-height: 100px;
             color: #333;
         }
+        .history-section {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        .history-section input {
+            width: 100%;
+            padding: 8px 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 13px;
+            font-family: inherit;
+            background: white;
+            transition: border-color 0.3s;
+        }
+        .history-section input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        .history-list {
+            display: none;
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 2px solid #667eea;
+            border-top: none;
+            border-radius: 0 0 6px 6px;
+            max-height: 250px;
+            overflow-y: auto;
+            z-index: 1000;
+        }
+        .history-list .history-item {
+            padding: 8px 12px;
+            cursor: pointer;
+            font-size: 13px;
+        }
+        .history-list .history-item:hover {
+            background: #667eea;
+            color: white;
+        }
+        .history-section button {
+            padding: 8px 14px;
+            font-size: 12px;
+            background: #dc3545;
+            color: white;
+        }
+        .history-section button:hover {
+            background: #c82333;
+        }
+        body.dark .history-section input {
+            background: #1a1a2e;
+            color: #e0e0e0;
+            border-color: #2a2a3e;
+        }
+        body.dark .history-list {
+            background: #1a1a2e;
+            border-color: #667eea;
+        }
+        body.dark .history-list .history-item:hover {
+            background: #667eea;
+        }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs/loader.min.js"></script>
 </head>
@@ -342,6 +406,15 @@
     
     <div class="container">
         <div id="decoder-tab" class="tab-content active">
+        <div class="history-section" id="history-section" style="display:none;">
+            <div style="flex:1; position:relative; display:flex; align-items:center;">
+                <input type="text" id="history-input" placeholder="-- Decoded History --" autocomplete="off" onfocus="showHistoryList()" oninput="filterHistory()" style="padding-right:55px;">
+                <span id="history-clear" onclick="clearHistoryInput()" style="display:none; position:absolute; left:0; top:50%; transform:translateY(-50%); cursor:pointer; font-size:14px; color:#999; padding:2px 4px;">✕</span>
+                <span id="history-save-label" onclick="saveHistoryLabel()" style="display:none; position:absolute; right:8px; top:50%; transform:translateY(-50%); cursor:pointer; font-size:14px; color:#28a745; padding:2px 4px;">💾</span>
+                <div id="history-list" class="history-list"></div>
+            </div>
+            <button onclick="clearHistory()">Clear History</button>
+        </div>
         <div class="editor-label">Input XML:</div>
         <div id="input-editor" class="editor-container"></div>
         
@@ -671,6 +744,7 @@
                 const serializer = new XMLSerializer();
                 fullXml = serializer.serializeToString(xmlDoc);
                 displayButtons();
+                saveToHistory(input);
                 
                 setTimeout(() => {
                     const fullBtn = document.getElementById('btn-full');
@@ -1056,6 +1130,167 @@
             diffOriginalEditor.setValue('');
             diffModifiedEditor.setValue('');
         }
+
+        // Decoded history management (IndexedDB)
+        let historyDb;
+        function openHistoryDb() {
+            return new Promise((resolve, reject) => {
+                if (historyDb) return resolve(historyDb);
+                const req = indexedDB.open('xmlDecoderHistory', 2);
+                req.onupgradeneeded = e => {
+                    const db = e.target.result;
+                    if (db.objectStoreNames.contains('entries')) db.deleteObjectStore('entries');
+                    if (!db.objectStoreNames.contains('meta')) db.createObjectStore('meta', { keyPath: 'id', autoIncrement: true });
+                    if (!db.objectStoreNames.contains('content')) db.createObjectStore('content', { keyPath: 'id' });
+                };
+                req.onsuccess = e => { historyDb = e.target.result; resolve(historyDb); };
+                req.onerror = e => reject(e);
+            });
+        }
+
+        async function getHistoryMeta() {
+            const db = await openHistoryDb();
+            return new Promise(resolve => {
+                const tx = db.transaction('meta', 'readonly');
+                const req = tx.objectStore('meta').getAll();
+                req.onsuccess = () => resolve(req.result.reverse());
+            });
+        }
+
+        async function getHistoryContent(id) {
+            const db = await openHistoryDb();
+            return new Promise(resolve => {
+                const tx = db.transaction('content', 'readonly');
+                const req = tx.objectStore('content').get(id);
+                req.onsuccess = () => resolve(req.result?.input || '');
+            });
+        }
+
+        async function saveToHistory(inputXml) {
+            const metas = await getHistoryMeta();
+            const parser = new DOMParser();
+            const xmlDoc = parser.parseFromString(inputXml, 'text/xml');
+            const messageId = xmlDoc.querySelector('MessageId')?.textContent || '';
+            if (messageId && metas.some(e => e.messageId === messageId)) return;
+            const environment = xmlDoc.querySelector('Environment')?.textContent || '';
+            const jurisdiction = xmlDoc.querySelector('LodgementVerificationRequest > Jurisdiction')?.textContent || '';
+            const caseId = xmlDoc.querySelector('ElnLodgementCaseId')?.textContent || '';
+            const label = [environment, jurisdiction, caseId, new Date().toLocaleString('en-AU', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' })].filter(Boolean).join(' - ');
+
+            const db = await openHistoryDb();
+            const tx = db.transaction(['meta', 'content'], 'readwrite');
+            const metaStore = tx.objectStore('meta');
+            const addReq = metaStore.add({ label, messageId });
+            addReq.onsuccess = () => {
+                tx.objectStore('content').put({ id: addReq.result, input: inputXml });
+            };
+            tx.oncomplete = () => refreshHistoryDropdown();
+        }
+
+        async function refreshHistoryDropdown() {
+            const metas = await getHistoryMeta();
+            const section = document.getElementById('history-section');
+            const input = document.getElementById('history-input');
+            input.placeholder = '-- Decoded History (' + metas.length + ') --';
+            section.style.display = metas.length ? 'flex' : 'none';
+        }
+
+        let historyCache = [];
+        async function showHistoryList() {
+            historyCache = await getHistoryMeta();
+            const query = document.getElementById('history-input').value.toLowerCase();
+            const filtered = query ? historyCache.filter(e => e.label.toLowerCase().includes(query)) : historyCache;
+            renderHistoryList(filtered);
+        }
+
+        function filterHistory() {
+            const query = document.getElementById('history-input').value.toLowerCase();
+            if (!historyCache.length) { showHistoryList(); return; }
+            const filtered = historyCache.filter(e => e.label.toLowerCase().includes(query));
+            renderHistoryList(filtered);
+        }
+
+        let selectedHistoryId = null;
+
+        function renderHistoryList(entries) {
+            const list = document.getElementById('history-list');
+            list.innerHTML = '';
+            entries.forEach(entry => {
+                const div = document.createElement('div');
+                div.className = 'history-item';
+                div.textContent = entry.label;
+                div.onclick = async () => {
+                    const xml = await getHistoryContent(entry.id);
+                    inputEditor.setValue(xml);
+                    clearOutput();
+                    list.style.display = 'none';
+                    selectedHistoryId = entry.id;
+                    const input = document.getElementById('history-input');
+                    input.value = entry.label;
+                    positionHistoryButtons();
+                };
+                list.appendChild(div);
+            });
+            list.style.display = entries.length ? 'block' : 'none';
+        }
+
+        function positionHistoryButtons() {
+            const input = document.getElementById('history-input');
+            const clearBtn = document.getElementById('history-clear');
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            ctx.font = getComputedStyle(input).font;
+            const textWidth = ctx.measureText(input.value).width;
+            clearBtn.style.left = (textWidth + 16) + 'px';
+            clearBtn.style.display = 'block';
+            document.getElementById('history-save-label').style.display = 'block';
+        }
+
+        document.addEventListener('click', e => {
+            if (!e.target.closest('.history-section')) {
+                document.getElementById('history-list').style.display = 'none';
+            }
+        });
+
+        function clearHistoryInput() {
+            document.getElementById('history-input').value = '';
+            document.getElementById('history-clear').style.display = 'none';
+            document.getElementById('history-save-label').style.display = 'none';
+            selectedHistoryId = null;
+        }
+
+        async function saveHistoryLabel() {
+            if (selectedHistoryId === null) return;
+            const newLabel = document.getElementById('history-input').value.trim();
+            if (!newLabel) return;
+            const db = await openHistoryDb();
+            const tx = db.transaction('meta', 'readwrite');
+            const store = tx.objectStore('meta');
+            const req = store.get(selectedHistoryId);
+            req.onsuccess = () => {
+                const entry = req.result;
+                entry.label = newLabel;
+                store.put(entry);
+            };
+            tx.oncomplete = () => {
+                historyCache = [];
+                refreshHistoryDropdown();
+            };
+        }
+
+        async function loadFromHistory() {}
+
+        async function clearHistory() {
+            if (!confirm('Clear all decoded history?')) return;
+            const db = await openHistoryDb();
+            const tx = db.transaction(['meta', 'content'], 'readwrite');
+            tx.objectStore('meta').clear();
+            tx.objectStore('content').clear();
+            tx.oncomplete = () => refreshHistoryDropdown();
+        }
+
+        // Initialize history dropdown on load
+        document.addEventListener('DOMContentLoaded', refreshHistoryDropdown);
     </script>
 </body>
 </html>
