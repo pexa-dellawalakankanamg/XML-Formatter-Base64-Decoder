@@ -23,9 +23,9 @@
         <div class="history-section" id="history-section" style="display:none;">
             <div style="flex:1; position:relative; display:flex; align-items:center;">
                 <input type="text" id="history-input" placeholder="-- Decoded History --" autocomplete="off" onfocus="showHistoryList()" oninput="filterHistory()" style="padding-right:70px;">
-                <span id="history-clear" onclick="clearHistoryInput()" style="display:none; position:absolute; right:52px; top:50%; transform:translateY(-50%); cursor:pointer; font-size:14px; color:#999; padding:2px 4px;">✕</span>
-                <span id="history-save-label" onclick="saveHistoryLabel()" style="display:none; position:absolute; right:30px; top:50%; transform:translateY(-50%); cursor:pointer; font-size:14px; color:#28a745; padding:2px 4px;">💾</span>
-                <span id="history-delete" onclick="deleteHistoryEntry()" style="display:none; position:absolute; right:8px; top:50%; transform:translateY(-50%); cursor:pointer; font-size:14px; color:#dc3545; padding:2px 4px;">🗑</span>
+                <span id="history-clear" class="history-action-icon icon-clear" onclick="clearHistoryInput()">✕</span>
+                <span id="history-save-label" class="history-action-icon icon-save" onclick="saveHistoryLabel()">💾</span>
+                <span id="history-delete" class="history-action-icon icon-delete" onclick="deleteHistoryEntry()">🗑</span>
                 <div id="history-list" class="history-list"></div>
             </div>
             <button onclick="clearHistory()">Clear History</button>

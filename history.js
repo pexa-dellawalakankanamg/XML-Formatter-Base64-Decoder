@@ -20,19 +20,23 @@ function openHistoryDb() {
 
 async function getHistoryMeta() {
     const db = await openHistoryDb();
-    return new Promise(resolve => {
+    return new Promise((resolve, reject) => {
         const tx = db.transaction('meta', 'readonly');
         const req = tx.objectStore('meta').getAll();
         req.onsuccess = () => resolve(req.result.reverse());
+        req.onerror = () => reject(req.error);
+        tx.onerror = () => reject(tx.error);
     });
 }
 
 async function getHistoryContent(id) {
     const db = await openHistoryDb();
-    return new Promise(resolve => {
+    return new Promise((resolve, reject) => {
         const tx = db.transaction('content', 'readonly');
         const req = tx.objectStore('content').get(id);
         req.onsuccess = () => resolve(req.result?.input || '');
+        req.onerror = () => reject(req.error);
+        tx.onerror = () => reject(tx.error);
     });
 }
 

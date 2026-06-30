@@ -95,11 +95,13 @@ function decodeBase64() {
                 try {
                     let decoded, decodedDoc, metaRoot;
                     const contentNode = node.querySelector('CounterpartContent');
+                    let alreadyDecoded = false;
                     if (contentNode && contentNode.children.length > 0) {
                         const serializer = new XMLSerializer();
                         decoded = serializer.serializeToString(contentNode.children[0]);
                         decodedDoc = parser.parseFromString(decoded, 'text/xml');
                         metaRoot = node;
+                        alreadyDecoded = true;
                     } else {
                         decoded = atob(node.textContent.trim());
                         decodedDoc = parser.parseFromString(decoded, 'text/xml');
@@ -117,7 +119,7 @@ function decodeBase64() {
                         lodgementDocNode = lodgementDocNode.parentElement;
                     }
 
-                    tempData.push({ docType, signingRole, decoded, node, decodedDoc, elnDocId, lodgementDocNode });
+                    tempData.push({ docType, signingRole, decoded, node, decodedDoc, elnDocId, lodgementDocNode, alreadyDecoded });
                 } catch (e) {}
             }
         }
@@ -158,8 +160,9 @@ function decodeBase64() {
                 const clonedLodgement = group.lodgementDocNode.cloneNode(true);
                 const clonedCounterparts = clonedLodgement.querySelectorAll('Counterpart, [*|Counterpart]');
 
-                // Decode all counterparts in the cloned lodgement document
+                // Decode all counterparts in the cloned lodgement document (skip already decoded)
                 group.counterparts.forEach((cp, idx) => {
+                    if (cp.alreadyDecoded) return;
                     if (clonedCounterparts[idx]) {
                         clonedCounterparts[idx].textContent = '';
                         while (clonedCounterparts[idx].firstChild) {
@@ -184,8 +187,9 @@ function decodeBase64() {
                 }))
             });
 
-            // Still process nodes for full XML
+            // Still process nodes for full XML (skip already decoded)
             group.counterparts.forEach(d => {
+                if (d.alreadyDecoded) return;
                 d.node.textContent = '';
                 while (d.node.firstChild) d.node.removeChild(d.node.firstChild);
                 for (let child of d.decodedDoc.documentElement.childNodes) {

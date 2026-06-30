@@ -340,3 +340,28 @@ body.dark .history-list {
 body.dark .history-list .history-item:hover {
     background: #667eea;
 }
+.history-action-icon {
+    display: none;
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    cursor: pointer;
+    font-size: 14px;
+    padding: 2px 4px;
+    line-height: 1;
+}
+.history-action-icon.icon-clear {
+    right: 52px;
+    color: #999;
+}
+.history-action-icon.icon-save {
+    right: 30px;
+    color: #28a745;
+}
+.history-action-icon.icon-delete {
+    right: 8px;
+    color: #dc3545;
+}
+.history-action-icon:hover {
+    opacity: 0.7;
+}
