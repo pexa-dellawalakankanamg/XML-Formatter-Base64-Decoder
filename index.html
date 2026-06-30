@@ -1251,6 +1251,13 @@
             }
         });
 
+        document.getElementById('history-input').addEventListener('keydown', e => {
+            if (e.key === 'Escape') {
+                clearHistoryInput();
+                showHistoryList();
+            }
+        });
+
         function clearHistoryInput() {
             document.getElementById('history-input').value = '';
             document.getElementById('history-clear').style.display = 'none';
